@@ -36,7 +36,8 @@ cli          binary entry point
 - [kinematics](docs/kinematics.md) — the math
 - [hardware](docs/hardware.md) — wiring + calibration
 - [safety](docs/safety.md)
-- [roadmap](docs/roadmap.md)
+- [roadmap](docs/roadmap.md) — near-term plan
+- [ambitions](docs/ambitions.md) — long-term vision and the Rust ecosystem we'd build on
 
 ## Stack
 
