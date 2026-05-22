@@ -1,0 +1,87 @@
+<?xml version="1.0" ?>
+<!--
+  Gazebo (gz-sim, formerly Ignition) world for the platform.
+
+  Launch:
+    gz sim -r robotics-platform/gazebo/world.sdf
+
+  Cubes are placed at the same positions as `configs/simulation.toml`
+  so the in-process sim and Gazebo agree on the scene.
+
+  To bridge the arm into this world you need either:
+    1) ROS 2 + ros_gz_bridge publishing /joint_states (see docs/simulation.md), or
+    2) a custom Gazebo system plugin that talks to the Rust process.
+-->
+<sdf version="1.10">
+  <world name="pick_and_place">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <direction>-0.5 0.3 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>2 2</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>2 2</size></plane></geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- cube_a — matches configs/simulation.toml -->
+    <model name="cube_a">
+      <pose>0.12 0.00 0.025 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>0.02</mass></inertial>
+        <collision name="c"><geometry><box><size>0.025 0.025 0.025</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>0.025 0.025 0.025</size></box></geometry>
+          <material>
+            <diffuse>0.9 0.2 0.2 1</diffuse>
+            <ambient>0.9 0.2 0.2 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="cube_b">
+      <pose>0.10 0.08 0.025 0 0 0</pose>
+      <link name="link">
+        <inertial><mass>0.02</mass></inertial>
+        <collision name="c"><geometry><box><size>0.025 0.025 0.025</size></box></geometry></collision>
+        <visual name="v">
+          <geometry><box><size>0.025 0.025 0.025</size></box></geometry>
+          <material>
+            <diffuse>0.2 0.4 0.9 1</diffuse>
+            <ambient>0.2 0.4 0.9 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- The arm itself is included via URDF; load via:
+         <include><uri>file://$(pwd)/assets/robot_arm.urdf</uri></include>
+         once you have urdf-to-sdf converted, OR use ros2 launch with
+         spawn_entity. -->
+  </world>
+</sdf>

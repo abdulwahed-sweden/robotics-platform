@@ -1,0 +1,80 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/kinematics",
+    "crates/motion",
+    "crates/simulation",
+    "crates/hardware",
+    "crates/gpio",
+    "crates/protocols",
+    "crates/vision",
+    "crates/planner",
+    "crates/cli",
+]
+
+# Centralized dependency versions. Every crate depends on the workspace
+# version so the platform upgrades atomically. This is the same pattern
+# used by larger Rust projects like tokio and the Rust compiler workspace.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+authors = ["robotics-platform contributors"]
+repository = "https://github.com/robotics-platform/robotics-platform"
+
+[workspace.dependencies]
+# Async runtime. tokio is the de-facto Rust async runtime; we use it for
+# the control loop, telemetry channels, and (later) network bridges.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal"] }
+
+# Math. nalgebra is column-major and matches the conventions used in
+# robotics textbooks (Craig, Siciliano). We deliberately avoid `glam`
+# here because nalgebra ships with proper kinematics primitives
+# (Isometry3, Rotation3) and integrates with Rapier for future physics.
+nalgebra = { version = "0.33", features = ["serde-serialize"] }
+
+# Config + serialization. Used for arm.toml, simulation.toml, the wire
+# protocol, and persisted calibration data.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Logging. tracing gives us structured, span-aware logs which is what
+# you want for a control loop where you need to correlate a command,
+# its planner output, its trajectory, and the resulting joint telemetry.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# Error handling. anyhow at application boundaries, thiserror for
+# library-level typed errors. Standard Rust idiom.
+anyhow = "1"
+thiserror = "2"
+
+# CLI.
+clap = { version = "4", features = ["derive"] }
+
+# Hardware. rppal is Linux/ARM only; we cfg-gate it. The gpio crate
+# compiles on macOS too so cargo check --workspace works on dev machines.
+rppal = "0.19"
+
+# Internal crates. Listed here so each member can reference the others
+# uniformly via { workspace = true } without juggling paths.
+robotics-core = { path = "crates/core", version = "0.1.0" }
+robotics-kinematics = { path = "crates/kinematics", version = "0.1.0" }
+robotics-motion = { path = "crates/motion", version = "0.1.0" }
+robotics-simulation = { path = "crates/simulation", version = "0.1.0" }
+robotics-hardware = { path = "crates/hardware", version = "0.1.0" }
+robotics-gpio = { path = "crates/gpio", version = "0.1.0" }
+robotics-protocols = { path = "crates/protocols", version = "0.1.0" }
+robotics-vision = { path = "crates/vision", version = "0.1.0" }
+robotics-planner = { path = "crates/planner", version = "0.1.0" }
+
+[profile.release]
+# Robotics is latency-sensitive. LTO + codegen-units=1 buys a real
+# perf improvement at the cost of slower builds. Worth it for the
+# release binary that runs on the Pi.
+lto = "thin"
+codegen-units = 1
+debug = 1  # keep symbols so flamegraphs work on the Pi

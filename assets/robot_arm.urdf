@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<!--
+  5-DOF anthropomorphic arm. Geometry matches configs/arm.toml.
+  Loadable into Gazebo (`gz sim -r robot_arm.urdf` once gz_sim_urdf
+  is installed) or rviz.
+
+  Coordinate convention: REP-103 (X forward, Y left, Z up).
+-->
+<robot name="robotics_platform_arm">
+
+  <link name="base_link">
+    <visual>
+      <geometry><cylinder length="0.05" radius="0.04"/></geometry>
+      <origin xyz="0 0 0.025"/>
+      <material name="dark"><color rgba="0.2 0.2 0.2 1"/></material>
+    </visual>
+    <collision>
+      <geometry><cylinder length="0.05" radius="0.04"/></geometry>
+      <origin xyz="0 0 0.025"/>
+    </collision>
+    <inertial>
+      <mass value="0.30"/>
+      <inertia ixx="1e-3" iyy="1e-3" izz="1e-3" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="base_to_shoulder_yaw" type="revolute">
+    <parent link="base_link"/>
+    <child link="shoulder_yaw_link"/>
+    <axis xyz="0 0 1"/>
+    <origin xyz="0 0 0.05"/>
+    <limit lower="-3.14159" upper="3.14159" effort="2.0" velocity="3.0"/>
+  </joint>
+
+  <link name="shoulder_yaw_link">
+    <visual>
+      <geometry><box size="0.03 0.03 0.02"/></geometry>
+      <material name="light"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="shoulder_pitch" type="revolute">
+    <parent link="shoulder_yaw_link"/>
+    <child link="upper_arm"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0 0 0.01"/>
+    <limit lower="-1.5708" upper="3.14159" effort="2.0" velocity="3.0"/>
+  </joint>
+
+  <link name="upper_arm">
+    <visual>
+      <geometry><box size="0.10 0.02 0.02"/></geometry>
+      <origin xyz="0.05 0 0"/>
+      <material name="light"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <collision>
+      <geometry><box size="0.10 0.02 0.02"/></geometry>
+      <origin xyz="0.05 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.08"/>
+      <inertia ixx="1e-5" iyy="1e-4" izz="1e-4" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="elbow_pitch" type="revolute">
+    <parent link="upper_arm"/>
+    <child link="forearm"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0.10 0 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="2.0" velocity="3.0"/>
+  </joint>
+
+  <link name="forearm">
+    <visual>
+      <geometry><box size="0.10 0.02 0.02"/></geometry>
+      <origin xyz="0.05 0 0"/>
+      <material name="light"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <collision>
+      <geometry><box size="0.10 0.02 0.02"/></geometry>
+      <origin xyz="0.05 0 0"/>
+    </collision>
+    <inertial>
+      <mass value="0.06"/>
+      <inertia ixx="1e-5" iyy="1e-4" izz="1e-4" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="wrist_pitch" type="revolute">
+    <parent link="forearm"/>
+    <child link="wrist"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0.10 0 0"/>
+    <limit lower="-3.14159" upper="3.14159" effort="2.0" velocity="3.0"/>
+  </joint>
+
+  <link name="wrist">
+    <visual>
+      <geometry><box size="0.08 0.02 0.02"/></geometry>
+      <origin xyz="0.04 0 0"/>
+      <material name="light"><color rgba="0.8 0.8 0.8 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.04"/>
+      <inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="gripper_finger" type="prismatic">
+    <parent link="wrist"/>
+    <child link="finger"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0.08 0 0"/>
+    <limit lower="0.0" upper="0.03" effort="1.0" velocity="0.5"/>
+  </joint>
+
+  <link name="finger">
+    <visual>
+      <geometry><box size="0.01 0.005 0.025"/></geometry>
+      <material name="dark"><color rgba="0.2 0.2 0.2 1"/></material>
+    </visual>
+    <inertial>
+      <mass value="0.005"/>
+      <inertia ixx="1e-7" iyy="1e-7" izz="1e-7" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+</robot>

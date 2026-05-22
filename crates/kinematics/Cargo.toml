@@ -1,0 +1,13 @@
+[package]
+name = "robotics-kinematics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Forward and inverse kinematics for the platform's 5-DOF arm"
+
+[dependencies]
+robotics-core = { workspace = true }
+nalgebra = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

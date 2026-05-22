@@ -1,0 +1,56 @@
+# Wiring + per-servo calibration.
+#
+# `channel` is one of:
+#   { hardware0 = {} }      # Pi GPIO 12 or 18
+#   { hardware1 = {} }      # Pi GPIO 13 or 19
+#   { software = <bcm_pin> } # any other GPIO; software-timed PWM
+#
+# Two hardware channels mean the two heaviest-loaded joints (typically
+# base and shoulder) get the cleanest PWM. The remaining three live on
+# software PWM. For production, replace this whole crate with a
+# PCA9685 I²C driver (16 channels of hardware PWM via the HAT).
+
+[base]
+channel = { hardware0 = {} }
+[base.calibration]
+frequency_hz = 50.0
+angle_min_rad = 0.0
+angle_max_rad = 3.14159
+pulse_min_ms = 1.0
+pulse_max_ms = 2.0
+
+[shoulder]
+channel = { hardware1 = {} }
+[shoulder.calibration]
+frequency_hz = 50.0
+angle_min_rad = 0.0
+angle_max_rad = 3.14159
+pulse_min_ms = 1.0
+pulse_max_ms = 2.0
+
+[elbow]
+channel = { software = 17 }
+[elbow.calibration]
+frequency_hz = 50.0
+angle_min_rad = 0.0
+angle_max_rad = 3.14159
+pulse_min_ms = 1.0
+pulse_max_ms = 2.0
+
+[wrist]
+channel = { software = 27 }
+[wrist.calibration]
+frequency_hz = 50.0
+angle_min_rad = 0.0
+angle_max_rad = 3.14159
+pulse_min_ms = 1.0
+pulse_max_ms = 2.0
+
+[gripper]
+channel = { software = 22 }
+[gripper.calibration]
+frequency_hz = 50.0
+angle_min_rad = 0.0
+angle_max_rad = 3.14159
+pulse_min_ms = 1.0
+pulse_max_ms = 2.0

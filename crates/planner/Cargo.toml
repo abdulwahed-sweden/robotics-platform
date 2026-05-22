@@ -1,0 +1,17 @@
+[package]
+name = "robotics-planner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "High-level task planner + explicit robot state machine"
+
+[dependencies]
+robotics-core = { workspace = true }
+robotics-kinematics = { workspace = true }
+robotics-motion = { workspace = true }
+tokio = { workspace = true }
+async-trait = "0.1"
+serde = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }

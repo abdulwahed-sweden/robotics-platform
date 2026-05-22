@@ -1,0 +1,21 @@
+# Objects the simulator spawns at startup. Positions are in robot
+# base frame, meters. `grasp_radius` is how close the end-effector
+# must come for the gripper to grab it (tweaked per object size).
+
+[[objects]]
+id = "cube_a"
+grasp_radius = 0.025
+
+[objects.position]
+x = 0.12
+y = 0.00
+z = 0.05
+
+[[objects]]
+id = "cube_b"
+grasp_radius = 0.025
+
+[objects.position]
+x = 0.10
+y = 0.08
+z = 0.05

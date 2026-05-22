@@ -1,0 +1,44 @@
+# Geometric and dynamic description of the arm.
+# Units: meters for lengths, radians for angles, rad/s for velocities,
+# rad/s² for accelerations. Stick to SI everywhere.
+
+base_height = 0.05
+l1 = 0.10  # shoulder → elbow
+l2 = 0.10  # elbow → wrist
+l3 = 0.08  # wrist → tool tip
+
+[base_limits]
+min_rad = -3.14159
+max_rad = 3.14159
+max_velocity = 3.0
+max_acceleration = 6.0
+
+[shoulder_limits]
+# Real SG90s reach ~0..π but the IK math is happier with some
+# negative range, so the kinematics layer accepts it. The hardware
+# backend's calibration table re-clamps to the physical range.
+min_rad = -1.5708
+max_rad = 3.14159
+max_velocity = 3.0
+max_acceleration = 6.0
+
+[elbow_limits]
+min_rad = -3.14159
+max_rad = 3.14159
+max_velocity = 3.0
+max_acceleration = 6.0
+
+[wrist_limits]
+min_rad = -3.14159
+max_rad = 3.14159
+max_velocity = 3.0
+max_acceleration = 6.0
+
+[gripper_limits]
+# Gripper "angle" is the opening, normalized so 0 = closed,
+# ~1.2 rad = fully open. The hardware servo's actual range is mapped
+# via the calibration in hardware.toml.
+min_rad = 0.0
+max_rad = 1.2
+max_velocity = 3.0
+max_acceleration = 6.0

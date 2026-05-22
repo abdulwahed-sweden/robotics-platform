@@ -1,0 +1,17 @@
+[package]
+name = "robotics-hardware"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Real-hardware backend driving servos via the gpio crate"
+
+[dependencies]
+robotics-core = { workspace = true }
+robotics-gpio = { workspace = true }
+robotics-kinematics = { workspace = true }
+tokio = { workspace = true }
+async-trait = "0.1"
+serde = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
