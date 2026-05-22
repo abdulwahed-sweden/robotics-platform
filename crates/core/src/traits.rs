@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::joint::{JointCommand, JointId, JointState, JointTelemetry};
 use crate::pose::Vec3;
+use crate::telemetry::TelemetryRx;
 
 /// A motor controller drives a single physical or simulated motor. This
 /// is the lowest-level surface; everything else composes on top.
@@ -149,4 +150,13 @@ pub trait Backend: Send + Sync {
     /// Cleanly shut down. Required to ensure the hardware backend
     /// drives PWM to neutral before exit.
     async fn shutdown(&mut self) -> Result<()>;
+
+    /// Optional native telemetry stream. Backends that own a tick loop
+    /// (sim, hardware) override this to return `Some(rx)` and drive
+    /// the channel from inside the tick — observers then see fresh
+    /// state at the loop's native rate without polling. Default is
+    /// `None`; consumers fall back to calling `arm().joint_state()`.
+    fn telemetry_rx(&self) -> Option<TelemetryRx> {
+        None
+    }
 }

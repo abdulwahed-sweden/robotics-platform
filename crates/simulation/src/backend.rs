@@ -11,6 +11,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use robotics_core::{
     Backend, Gripper, GripperState, JointCommand, JointState, JointTelemetry, RobotArm, Result,
+    TelemetryHub, TelemetryRx,
 };
 use robotics_kinematics::ArmModel;
 use tokio::sync::Mutex;
@@ -28,13 +29,16 @@ const TICK_HZ: f64 = 200.0;
 pub struct SimulationBackend {
     world: Arc<Mutex<SimWorld>>,
     tick_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    hub: Arc<TelemetryHub>,
 }
 
 impl SimulationBackend {
     pub fn new(model: ArmModel, objects: Vec<SimObject>) -> Self {
+        let (hub, _initial_rx) = TelemetryHub::new(JointState::default());
         Self {
             world: Arc::new(Mutex::new(SimWorld::new(model, objects))),
             tick_task: Arc::new(Mutex::new(None)),
+            hub,
         }
     }
 
@@ -74,6 +78,7 @@ impl Backend for SimulationBackend {
             return Ok(());
         }
         let world = Arc::clone(&self.world);
+        let hub = Arc::clone(&self.hub);
         let dt = 1.0 / TICK_HZ;
         let period = Duration::from_secs_f64(dt);
         let handle = tokio::spawn(async move {
@@ -81,8 +86,15 @@ impl Backend for SimulationBackend {
             ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 ticker.tick().await;
-                let mut w = world.lock().await;
-                w.tick(dt);
+                // Tick under the lock; publish after dropping it so a
+                // slow telemetry consumer can never extend the lock's
+                // hold time.
+                let snapshot = {
+                    let mut w = world.lock().await;
+                    w.tick(dt);
+                    w.joints
+                };
+                hub.publish(snapshot);
             }
         });
         *slot = Some(handle);
@@ -97,6 +109,10 @@ impl Backend for SimulationBackend {
         }
         info!("simulation backend shut down");
         Ok(())
+    }
+
+    fn telemetry_rx(&self) -> Option<TelemetryRx> {
+        Some(self.hub.subscribe())
     }
 }
 

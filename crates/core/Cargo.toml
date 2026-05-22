@@ -11,3 +11,6 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 nalgebra = { workspace = true }
 async-trait = "0.1"
+# `tokio::sync::watch` powers the optional TelemetryHub. We pull only
+# the `sync` feature so core stays runtime-agnostic for sync callers.
+tokio = { workspace = true }

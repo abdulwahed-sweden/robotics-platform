@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>robotics-platform — live</title>
+<style>
+  :root {
+    --bg: #0e1116; --panel: #161b22; --line: #2b313a;
+    --text: #e6edf3; --muted: #8b949e; --accent: #58a6ff;
+    --ok: #3fb950; --warn: #d29922; --crit: #f85149;
+    --font: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px;
+    background: var(--bg); color: var(--text); font: 13px/1.5 var(--font);
+    display: grid; grid-template-columns: 1fr 320px; gap: 20px; height: 100vh;
+  }
+  .stage { background: var(--panel); border-radius: 8px; padding: 16px;
+           display: flex; flex-direction: column; }
+  .stage canvas { flex: 1; width: 100%; image-rendering: crisp-edges; }
+  .sidebar { background: var(--panel); border-radius: 8px; padding: 16px;
+             display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 13px; margin: 0 0 8px; color: var(--muted);
+       text-transform: uppercase; letter-spacing: 0.05em; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+          background: var(--line); }
+  .pill.ok   { background: rgba(63,185,80,.15);  color: var(--ok); }
+  .pill.warn { background: rgba(210,153,34,.15); color: var(--warn); }
+  .pill.crit { background: rgba(248,81,73,.15);  color: var(--crit); }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 0; border-bottom: 1px solid var(--line); }
+  td.j { color: var(--muted); width: 70px; }
+  td.v { text-align: right; font-variant-numeric: tabular-nums; }
+  button.estop {
+    background: var(--crit); color: white; border: none; padding: 14px;
+    border-radius: 8px; font: 600 14px/1 var(--font); cursor: pointer;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  button.estop:hover { filter: brightness(1.1); }
+  .small { font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<section class="stage">
+  <h1>arm — radial / vertical projection</h1>
+  <canvas id="arm"></canvas>
+  <div class="small" id="hud">connecting…</div>
+</section>
+
+<aside class="sidebar">
+  <div>
+    <h1>connection</h1>
+    <div><span id="conn" class="pill warn">connecting</span>
+         <span class="small" id="rate"></span></div>
+  </div>
+
+  <div>
+    <h1>state machine</h1>
+    <div><span id="state" class="pill">—</span></div>
+  </div>
+
+  <div>
+    <h1>joints (rad)</h1>
+    <table id="joints">
+      <tr><td class="j">base</td>     <td class="v" data-j="base">—</td></tr>
+      <tr><td class="j">shoulder</td> <td class="v" data-j="shoulder">—</td></tr>
+      <tr><td class="j">elbow</td>    <td class="v" data-j="elbow">—</td></tr>
+      <tr><td class="j">wrist</td>    <td class="v" data-j="wrist">—</td></tr>
+      <tr><td class="j">gripper</td>  <td class="v" data-j="gripper">—</td></tr>
+    </table>
+  </div>
+
+  <div>
+    <h1>gripper</h1>
+    <div><span id="grip" class="pill">—</span></div>
+  </div>
+
+  <button class="estop" id="estop">emergency stop</button>
+  <div class="small">SPACE · sends Command::EmergencyStop over /ws/control</div>
+</aside>
+
+<script>
+// Arm geometry mirror — TODO: fetch from /arm.json once the dashboard exposes it.
+const ARM = { base_height: 0.05, l1: 0.10, l2: 0.10, l3: 0.08 };
+
+const wsURL = (p) =>
+  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${p}`;
+
+let telemetry, control;
+let frames = 0, lastRate = performance.now();
+
+function connectTelemetry() {
+  telemetry = new WebSocket(wsURL('/ws/telemetry'));
+  telemetry.onopen    = () => setConn('ok', 'connected');
+  telemetry.onclose   = () => { setConn('warn', 'disconnected — retrying');
+                                setTimeout(connectTelemetry, 1000); };
+  telemetry.onerror   = () => setConn('crit', 'error');
+  telemetry.onmessage = (e) => onFrame(JSON.parse(e.data));
+}
+
+function connectControl() {
+  control = new WebSocket(wsURL('/ws/control'));
+  control.onclose = () => setTimeout(connectControl, 1000);
+}
+
+function setConn(cls, label) {
+  const el = document.getElementById('conn');
+  el.className = 'pill ' + cls;
+  el.textContent = label;
+}
+
+function onFrame(f) {
+  for (const j of ['base','shoulder','elbow','wrist','gripper']) {
+    const cell = document.querySelector(`td[data-j="${j}"]`);
+    if (cell) cell.textContent = f.joint_state[j].toFixed(3);
+  }
+  document.getElementById('state').textContent = f.state;
+  document.getElementById('grip').textContent  = f.gripper;
+  document.getElementById('grip').className    =
+    'pill ' + (f.gripper === 'holding' ? 'ok' : '');
+
+  drawArm(f.joint_state);
+
+  frames++;
+  const now = performance.now();
+  if (now - lastRate > 1000) {
+    document.getElementById('rate').textContent = `${frames} fps`;
+    document.getElementById('hud').textContent  = `t = ${(f.t_ms/1000).toFixed(2)} s`;
+    frames = 0; lastRate = now;
+  }
+}
+
+const canvas = document.getElementById('arm');
+function fit() {
+  const r = canvas.getBoundingClientRect();
+  canvas.width  = r.width  * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+}
+window.addEventListener('resize', fit); fit();
+
+function drawArm(js) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, dpr = devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+
+  const scale = Math.min(W, H) * 0.35 / 0.30;
+  const ox = W * 0.30, oy = H * 0.80;
+  const wx = (x) => ox + x * scale;
+  const wy = (z) => oy - z * scale;
+
+  ctx.strokeStyle = '#2b313a'; ctx.lineWidth = dpr;
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+
+  // FK in the radial/vertical plane (see docs/kinematics.md).
+  const s1 = js.shoulder;
+  const s2 = js.shoulder + js.elbow;
+  const s3 = js.shoulder + js.elbow + js.wrist;
+
+  const base     = { r: 0, z: 0 };
+  const shoulder = { r: 0, z: ARM.base_height };
+  const elbow    = { r: shoulder.r + ARM.l1*Math.cos(s1), z: shoulder.z + ARM.l1*Math.sin(s1) };
+  const wrist    = { r: elbow.r    + ARM.l2*Math.cos(s2), z: elbow.z    + ARM.l2*Math.sin(s2) };
+  const tool     = { r: wrist.r    + ARM.l3*Math.cos(s3), z: wrist.z    + ARM.l3*Math.sin(s3) };
+
+  const seg = (a, b, color, width) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width * dpr; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(wx(a.r), wy(a.z)); ctx.lineTo(wx(b.r), wy(b.z));
+    ctx.stroke();
+  };
+  seg(base,     shoulder, '#8b949e', 6);
+  seg(shoulder, elbow,    '#58a6ff', 5);
+  seg(elbow,    wrist,    '#58a6ff', 5);
+  seg(wrist,    tool,     '#3fb950', 4);
+
+  const dot = (p, color, r) => {
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(wx(p.r), wy(p.z), r * dpr, 0, Math.PI*2); ctx.fill();
+  };
+  dot(shoulder, '#e6edf3', 4);
+  dot(elbow,    '#e6edf3', 4);
+  dot(wrist,    '#e6edf3', 4);
+  dot(tool,     '#3fb950', 5);
+
+  // Gripper opening: two parallel ticks at the tool tip.
+  const open = Math.max(0, Math.min(1.2, js.gripper)) / 1.2 * 0.015;
+  const tx = wx(tool.r), ty = wy(tool.z);
+  ctx.strokeStyle = '#3fb950'; ctx.lineWidth = 2 * dpr;
+  for (const d of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(tx + d * open * scale, ty - 8 * dpr);
+    ctx.lineTo(tx + d * open * scale, ty + 8 * dpr);
+    ctx.stroke();
+  }
+
+  drawCompass(ctx, 30 * dpr, 30 * dpr, 18 * dpr, js.base);
+}
+
+function drawCompass(ctx, cx, cy, r, yaw) {
+  ctx.strokeStyle = '#2b313a'; ctx.lineWidth = devicePixelRatio;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 2 * devicePixelRatio;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + r * Math.cos(yaw), cy - r * Math.sin(yaw));
+  ctx.stroke();
+}
+
+document.getElementById('estop').onclick = () => {
+  if (!control || control.readyState !== 1) return;
+  control.send(JSON.stringify({ kind: 'emergency_stop' }));
+};
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    document.getElementById('estop').click();
+  }
+});
+
+connectTelemetry();
+connectControl();
+</script>
+</body>
+</html>

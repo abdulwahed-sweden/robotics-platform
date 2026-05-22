@@ -10,6 +10,7 @@ members = [
     "crates/protocols",
     "crates/vision",
     "crates/planner",
+    "crates/dashboard",
     "crates/cli",
 ]
 
@@ -59,6 +60,14 @@ clap = { version = "4", features = ["derive"] }
 # compiles on macOS too so cargo check --workspace works on dev machines.
 rppal = "0.19"
 
+# Web dashboard. axum 0.7 lines up with hyper 1 + tokio 1 (already in
+# the tree) and ships first-class WebSocket support. tower-http gives
+# us static-file serving (today the dashboard embeds its HTML via
+# include_str!, but ServeDir lands when we add /assets/*).
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+futures-util = "0.3"
+
 # Internal crates. Listed here so each member can reference the others
 # uniformly via { workspace = true } without juggling paths.
 robotics-core = { path = "crates/core", version = "0.1.0" }
@@ -70,6 +79,7 @@ robotics-gpio = { path = "crates/gpio", version = "0.1.0" }
 robotics-protocols = { path = "crates/protocols", version = "0.1.0" }
 robotics-vision = { path = "crates/vision", version = "0.1.0" }
 robotics-planner = { path = "crates/planner", version = "0.1.0" }
+robotics-dashboard = { path = "crates/dashboard", version = "0.1.0" }
 
 [profile.release]
 # Robotics is latency-sensitive. LTO + codegen-units=1 buys a real

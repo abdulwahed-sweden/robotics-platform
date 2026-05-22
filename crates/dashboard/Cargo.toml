@@ -1,0 +1,30 @@
+[package]
+name = "robotics-dashboard"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Web dashboard — live telemetry over WebSocket and a small operator UI."
+
+[dependencies]
+robotics-core      = { workspace = true }
+robotics-protocols = { workspace = true }
+robotics-kinematics = { workspace = true }
+robotics-motion    = { workspace = true }
+
+axum         = { workspace = true }
+tower-http   = { workspace = true }
+tokio        = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+tracing      = { workspace = true }
+anyhow       = { workspace = true }
+futures-util = { workspace = true }
+
+[dev-dependencies]
+robotics-simulation = { workspace = true }
+tracing-subscriber  = { workspace = true }
+
+[[example]]
+name = "dashboard_sim"
+path = "examples/dashboard_sim.rs"

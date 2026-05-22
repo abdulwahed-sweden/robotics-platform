@@ -8,6 +8,11 @@
 //!
 //! Press Ctrl-C to stop early.
 
+// The grid is drawn by writing characters at specific (x, y) indices into
+// a Vec<Vec<char>>. Iterator rewrites would obscure the geometry without
+// helping the borrow checker.
+#![allow(clippy::needless_range_loop)]
+
 use std::time::Duration;
 
 use robotics_core::{Backend, Vec3};

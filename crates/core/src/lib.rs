@@ -31,12 +31,14 @@
 pub mod error;
 pub mod joint;
 pub mod pose;
+pub mod telemetry;
 pub mod traits;
 pub mod time;
 
 pub use error::{RoboticsError, Result};
 pub use joint::{JointCommand, JointId, JointLimits, JointState, JointTelemetry};
 pub use pose::{Pose, Quaternion, Vec3};
+pub use telemetry::{TelemetryHub, TelemetryRx};
 pub use time::{Duration, Instant};
 pub use traits::{
     Backend, Gripper, GripperState, JointController, MotorController, RobotArm, Sensor,
