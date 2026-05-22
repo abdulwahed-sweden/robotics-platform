@@ -1,0 +1,17 @@
+[package]
+name = "robotics-audit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Append-only audit log of platform commands. JSONL today, swappable for Postgres later."
+
+[dependencies]
+robotics-protocols = { workspace = true }
+
+tokio      = { workspace = true }
+chrono     = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+tracing    = { workspace = true }
+anyhow     = { workspace = true }

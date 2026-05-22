@@ -77,6 +77,15 @@ pub enum Command {
         #[arg(long)]
         hardware: bool,
     },
+    /// Replay a recorded audit log (JSONL) against a fresh simulator.
+    Replay {
+        /// Path to the audit log file produced by the dashboard.
+        #[arg(long)]
+        from: std::path::PathBuf,
+        /// Playback rate. 1.0 = original timing, 10.0 = 10x faster.
+        #[arg(long, default_value_t = 1.0)]
+        speed: f64,
+    },
 }
 
 #[derive(Debug, Subcommand)]

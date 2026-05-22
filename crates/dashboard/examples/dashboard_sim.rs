@@ -9,6 +9,7 @@
 use std::time::Duration;
 
 use anyhow::Result;
+use robotics_audit::AuditRecorder;
 use robotics_core::{Backend, Vec3};
 use robotics_dashboard::{Dashboard, SharedBackend};
 use robotics_kinematics::ArmModel;
@@ -29,7 +30,15 @@ async fn main() -> Result<()> {
     let mut backend = SimulationBackend::new(arm, vec![]);
     backend.start().await?;
 
-    let dashboard = Dashboard::new(Box::new(backend), arm);
+    // Record every command issued through /ws/control to a JSONL file.
+    // Operators can later replay it with `cargo run -p robotics-cli --
+    // replay --from <path>`.
+    let audit_path = std::env::var("ROBOTICS_AUDIT_LOG")
+        .unwrap_or_else(|_| "/tmp/robotics-audit.jsonl".to_string());
+    let recorder = AuditRecorder::open(&audit_path).await?;
+    eprintln!("  ▸ audit log: {audit_path}");
+
+    let dashboard = Dashboard::new(Box::new(backend), arm).with_audit(recorder);
 
     // Drive the arm through a loop of reachable waypoints so the
     // dashboard shows visible motion the instant a browser connects.

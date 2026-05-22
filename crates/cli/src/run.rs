@@ -5,6 +5,8 @@
 //! is wrapped in `Box<dyn Backend>` so the rest of the body doesn't
 //! care which one was selected.
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 #[cfg(target_os = "linux")]
 use anyhow::Context;
@@ -13,6 +15,7 @@ use robotics_gpio::StubPwm;
 use robotics_hardware::HardwareBackend;
 use robotics_kinematics::ArmModel;
 use robotics_planner::{PickPlaceTask, StateMachine};
+use robotics_replay::{JsonlSource, ReplayDriver, ReplayOptions};
 use robotics_simulation::{SimObject, SimulationBackend};
 use tracing::info;
 
@@ -34,7 +37,21 @@ pub async fn dispatch(cli: Cli) -> Result<()> {
         Command::Place { x, y, z, hardware: hw } => {
             place(arm, Vec3::new(x, y, z), hw, &cli.hw, &cli.sim).await
         }
+        Command::Replay { from, speed } => replay_log(arm, from, speed).await,
     }
+}
+
+async fn replay_log(arm: ArmModel, path: PathBuf, speed: f64) -> Result<()> {
+    let source = JsonlSource::open(&path).await?;
+    let mut backend = SimulationBackend::new(arm, vec![]);
+    backend.start().await?;
+
+    let driver = ReplayDriver::new(arm, ReplayOptions { speed, ..Default::default() });
+    let report = driver.replay(&mut backend, source).await?;
+    let final_state = backend.arm().joint_state().await?;
+    info!(?report, ?final_state, "replay complete");
+    backend.shutdown().await?;
+    Ok(())
 }
 
 async fn simulate(arm: ArmModel, sim_cfg_path: &str) -> Result<()> {

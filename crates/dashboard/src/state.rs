@@ -10,11 +10,11 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, Mutex};
-
+use robotics_audit::AuditRecorder;
 use robotics_core::Backend;
 use robotics_kinematics::ArmModel;
 use robotics_protocols::TelemetryFrame;
+use tokio::sync::{broadcast, Mutex};
 
 pub type SharedBackend = Arc<Mutex<Box<dyn Backend>>>;
 
@@ -25,6 +25,10 @@ pub struct Shared {
     /// One writer (the bridge), many readers (WS subscribers). 64 slots
     /// is "drop late frames over block" — the UI is read-only.
     pub tx: broadcast::Sender<TelemetryFrame>,
+    /// Optional audit log. When `Some`, every command that hits the
+    /// dashboard is recorded *after* the backend has accepted (or
+    /// rejected) it.
+    pub audit: Option<Arc<AuditRecorder>>,
 }
 
 impl Shared {
@@ -34,6 +38,7 @@ impl Shared {
             backend: Arc::new(Mutex::new(backend)),
             arm,
             tx,
+            audit: None,
         }
     }
 }

@@ -17,12 +17,14 @@ mod state;
 mod ws;
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::Result;
 use axum::http::header;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Router;
+use robotics_audit::AuditRecorder;
 use robotics_core::Backend;
 use robotics_kinematics::ArmModel;
 use tracing::info;
@@ -41,6 +43,14 @@ impl Dashboard {
     /// without round-tripping to the CLI.
     pub fn new(backend: Box<dyn Backend>, arm: ArmModel) -> Self {
         Self { shared: Shared::new(backend, arm) }
+    }
+
+    /// Attach an audit log. Every command that reaches `/ws/control`
+    /// is recorded *after* the backend accepts or rejects it — the
+    /// short-circuit e-stop path is recorded too (with `out: "estop"`).
+    pub fn with_audit(mut self, audit: Arc<AuditRecorder>) -> Self {
+        self.shared.audit = Some(audit);
+        self
     }
 
     /// Borrow the shared backend handle. Use this from the embedding

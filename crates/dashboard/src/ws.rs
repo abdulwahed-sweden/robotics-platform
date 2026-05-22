@@ -12,6 +12,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
+use robotics_audit::AuditEntry;
 use robotics_core::JointState;
 use robotics_motion::MotionPlanner;
 use robotics_protocols::Command;
@@ -19,6 +20,8 @@ use serde::Serialize;
 use tracing::{info, warn};
 
 use crate::state::Shared;
+
+const OPERATOR: &str = "dashboard";
 
 pub async fn telemetry(ws: WebSocketUpgrade, State(shared): State<Shared>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| telemetry_loop(socket, shared))
@@ -76,21 +79,33 @@ async fn control_loop(mut socket: WebSocket, shared: Shared) {
                 let mut b = shared.backend.lock().await;
                 b.arm().emergency_stop().await
             };
-            let ack = match outcome {
-                Ok(_) => Ack::ok("estop"),
-                Err(e) => Ack::err(format!("estop: {e}")),
+            let (ack, out_str) = match outcome {
+                Ok(_) => (Ack::ok("estop"), "estop".to_string()),
+                Err(e) => (Ack::err(format!("estop: {e}")), format!("rejected:{e}")),
             };
+            audit(&shared, &cmd, &out_str).await;
             let _ = send_ack(&mut socket, ack).await;
             info!("e-stop dispatched from dashboard");
             continue;
         }
 
         let outcome = dispatch(&shared, &cmd).await;
-        let ack = match outcome {
-            Ok(()) => Ack::ok("accepted"),
-            Err(e) => Ack::err(e),
+        let (ack, out_str) = match outcome {
+            Ok(()) => (Ack::ok("accepted"), "accepted".to_string()),
+            Err(e) => (Ack::err(e.clone()), format!("rejected:{e}")),
         };
+        audit(&shared, &cmd, &out_str).await;
         let _ = send_ack(&mut socket, ack).await;
+    }
+}
+
+/// Persist one command to the audit log, if one is attached. The
+/// recorder swallows errors and logs them — an audit failure must
+/// never block the command path.
+async fn audit(shared: &Shared, cmd: &Command, outcome: &str) {
+    if let Some(rec) = &shared.audit {
+        let entry = AuditEntry::new(OPERATOR, cmd.clone(), outcome);
+        rec.record(&entry).await;
     }
 }
 

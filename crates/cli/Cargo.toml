@@ -19,6 +19,7 @@ robotics-hardware = { workspace = true }
 robotics-gpio = { workspace = true }
 robotics-planner = { workspace = true }
 robotics-protocols = { workspace = true }
+robotics-replay = { workspace = true }
 robotics-vision = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

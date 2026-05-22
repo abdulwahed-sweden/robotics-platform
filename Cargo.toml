@@ -10,6 +10,8 @@ members = [
     "crates/protocols",
     "crates/vision",
     "crates/planner",
+    "crates/audit",
+    "crates/replay",
     "crates/dashboard",
     "crates/cli",
 ]
@@ -28,7 +30,14 @@ repository = "https://github.com/robotics-platform/robotics-platform"
 [workspace.dependencies]
 # Async runtime. tokio is the de-facto Rust async runtime; we use it for
 # the control loop, telemetry channels, and (later) network bridges.
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal"] }
+# `fs` + `io-util` are needed by the audit recorder and the JSONL replay
+# source.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "fs", "io-util"] }
+
+# Date/time. The audit log records wall-clock timestamps and the replay
+# driver re-emits commands at their original cadence — both need a
+# proper date-time type, not raw u64 ms.
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 
 # Math. nalgebra is column-major and matches the conventions used in
 # robotics textbooks (Craig, Siciliano). We deliberately avoid `glam`
@@ -79,6 +88,8 @@ robotics-gpio = { path = "crates/gpio", version = "0.1.0" }
 robotics-protocols = { path = "crates/protocols", version = "0.1.0" }
 robotics-vision = { path = "crates/vision", version = "0.1.0" }
 robotics-planner = { path = "crates/planner", version = "0.1.0" }
+robotics-audit = { path = "crates/audit", version = "0.1.0" }
+robotics-replay = { path = "crates/replay", version = "0.1.0" }
 robotics-dashboard = { path = "crates/dashboard", version = "0.1.0" }
 
 [profile.release]
