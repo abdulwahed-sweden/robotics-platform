@@ -27,7 +27,7 @@ use robotics_core::Backend;
 use robotics_kinematics::ArmModel;
 use tracing::info;
 
-pub use state::Shared;
+pub use state::{Shared, SharedBackend};
 
 const INDEX_HTML: &str = include_str!("../static/index.html");
 
@@ -41,6 +41,13 @@ impl Dashboard {
     /// without round-tripping to the CLI.
     pub fn new(backend: Box<dyn Backend>, arm: ArmModel) -> Self {
         Self { shared: Shared::new(backend, arm) }
+    }
+
+    /// Borrow the shared backend handle. Use this from the embedding
+    /// process to drive the arm while the dashboard observes it — e.g.,
+    /// the demo loop in `examples/dashboard_sim.rs`.
+    pub fn shared_backend(&self) -> SharedBackend {
+        self.shared.backend.clone()
     }
 
     /// Serve until the future is dropped or the listener errors.
