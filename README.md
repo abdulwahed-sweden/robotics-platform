@@ -44,7 +44,8 @@ Rust stable. `tokio`, `nalgebra`, `serde`, `clap`, `tracing`, `rppal`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are tracked in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
