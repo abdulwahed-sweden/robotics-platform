@@ -23,6 +23,7 @@ robotics-vision = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -31,3 +32,11 @@ anyhow = { workspace = true }
 [[example]]
 name = "pick_and_place"
 path = "examples/pick_and_place.rs"
+
+[[example]]
+name = "watch"
+path = "examples/watch.rs"
+
+[[example]]
+name = "render"
+path = "examples/render.rs"

@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>robotics-platform — pick &amp; place</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07090d; color: #e6eaf2;
+               font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+               overflow: hidden; }
+  canvas { display: block; }
+
+  .panel {
+    position: absolute; background: rgba(10, 14, 22, 0.78);
+    border: 1px solid #1f2a3a; border-radius: 10px; padding: 12px 16px;
+    font-size: 12px; line-height: 1.5; backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+  }
+  #hud { top: 14px; left: 14px; min-width: 240px; }
+  #hud .title { color: #ff9d4d; font-weight: bold; letter-spacing: 0.5px;
+                font-size: 13px; margin-bottom: 6px; }
+  #hud .row { color: #8a96ad; }
+  #hud .v { color: #e6eaf2; }
+  #hud .phase {
+    display: inline-block; margin-top: 8px; padding: 4px 10px;
+    border-radius: 999px; font-weight: bold; letter-spacing: 0.5px;
+    background: #1a2436; color: #6fd0ff; border: 1px solid #2a3a55;
+    transition: background 0.4s, color 0.4s, border-color 0.4s;
+  }
+  #hud .phase.picking, #hud .phase.placing {
+    background: #2a1a1a; color: #ff8c6c; border-color: #4a2a2a;
+  }
+  #hud .phase.carrying {
+    background: #2a2410; color: #ffd070; border-color: #4a3e1a;
+  }
+  #hud .phase.done {
+    background: #112a18; color: #6cffa0; border-color: #2a4a35;
+  }
+  #help { bottom: 14px; left: 14px; color: #6c7a92; }
+  #help kbd {
+    background: #1a2030; border: 1px solid #2a3a55; padding: 1px 5px;
+    border-radius: 4px; font-size: 11px; color: #b0bbd1;
+  }
+  #brand {
+    top: 14px; right: 14px; text-align: right; color: #6c7a92;
+  }
+  #brand .big { color: #e6eaf2; font-weight: bold; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="hud" class="panel">
+  <div class="title">robotics-platform</div>
+  <div class="row" id="t">t = 0.00s / 0.00s</div>
+  <div class="row" id="joints">…</div>
+  <div class="row" id="ee">…</div>
+  <div><span id="phase" class="phase">MOVING TO PICK</span></div>
+</div>
+<div id="brand" class="panel">
+  <div class="big">5-DOF anthropomorphic arm</div>
+  <div>analytic IK · 60 Hz capture · loops</div>
+</div>
+<div id="help" class="panel">
+  drag <kbd>LMB</kbd> orbit · scroll zoom · <kbd>SPACE</kbd> auto-orbit · <kbd>R</kbd> reset view
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const recording = __RECORDING__;
+
+THREE.Object3D.DEFAULT_UP = new THREE.Vector3(0, 0, 1);
+
+// -- Renderer ------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+// -- Scene + camera ------------------------------------------------------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07090d);
+scene.fog = new THREE.FogExp2(0x07090d, 1.0);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.01, 30);
+camera.up.set(0, 0, 1);
+const cameraHome = new THREE.Vector3(0.36, -0.36, 0.30);
+camera.position.copy(cameraHome);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0.08);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.minDistance = 0.15;
+controls.maxDistance = 2.0;
+
+// -- Lighting ------------------------------------------------------------
+scene.add(new THREE.HemisphereLight(0x9bb3d6, 0x1a1f2e, 0.45));
+
+const key = new THREE.DirectionalLight(0xffeacc, 1.8);
+key.position.set(0.7, 0.6, 1.2);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 0.1;
+key.shadow.camera.far = 3.5;
+key.shadow.camera.left = -0.6;
+key.shadow.camera.right = 0.6;
+key.shadow.camera.top = 0.6;
+key.shadow.camera.bottom = -0.6;
+key.shadow.bias = -0.0005;
+key.shadow.radius = 4;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x6fb0ff, 0.7);
+rim.position.set(-0.8, -0.5, 0.4);
+scene.add(rim);
+
+const fill = new THREE.DirectionalLight(0xffd58c, 0.25);
+fill.position.set(0.3, -1.0, 0.2);
+scene.add(fill);
+
+// -- Floor ---------------------------------------------------------------
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(0.7, 64),
+  new THREE.MeshStandardMaterial({
+    color: 0x0b1018, roughness: 0.6, metalness: 0.15,
+  }),
+);
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Subtle glowing grid lines
+const gridGroup = new THREE.Group();
+const gridMat = new THREE.LineBasicMaterial({ color: 0x1a3050, transparent: true, opacity: 0.55 });
+for (let i = -6; i <= 6; i++) {
+  const a = i * 0.05;
+  const pts1 = [new THREE.Vector3(-0.3, a, 0.0006), new THREE.Vector3(0.3, a, 0.0006)];
+  const pts2 = [new THREE.Vector3(a, -0.3, 0.0006), new THREE.Vector3(a, 0.3, 0.0006)];
+  gridGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts1), gridMat));
+  gridGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts2), gridMat));
+}
+scene.add(gridGroup);
+
+// Origin triad
+const triad = new THREE.AxesHelper(0.06);
+triad.position.z = 0.001;
+scene.add(triad);
+
+// -- Robot kinematic chain ----------------------------------------------
+const { base_height, l1, l2, l3 } = recording;
+
+function metalMat(color, metalness = 0.85, roughness = 0.35) {
+  return new THREE.MeshStandardMaterial({ color, metalness, roughness });
+}
+
+const basePivot = new THREE.Object3D();
+scene.add(basePivot);
+
+const baseCyl = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.04, 0.045, base_height, 32),
+  metalMat(0x394256, 0.7, 0.4),
+);
+baseCyl.rotation.x = Math.PI / 2;
+baseCyl.position.z = base_height / 2;
+baseCyl.castShadow = true;
+baseCyl.receiveShadow = true;
+basePivot.add(baseCyl);
+
+const shoulder = new THREE.Object3D();
+shoulder.position.z = base_height;
+basePivot.add(shoulder);
+
+function linkMesh(length, color, thickness = 0.022) {
+  const g = new THREE.BoxGeometry(length, thickness, thickness);
+  const m = new THREE.Mesh(g, metalMat(color, 0.9, 0.28));
+  m.position.x = length / 2;
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+shoulder.add(linkMesh(l1, 0xdde1ea));
+
+const elbow = new THREE.Object3D();
+elbow.position.x = l1;
+shoulder.add(elbow);
+elbow.add(linkMesh(l2, 0xc6cad6));
+
+const wrist = new THREE.Object3D();
+wrist.position.x = l2;
+elbow.add(wrist);
+wrist.add(linkMesh(l3, 0xb0b6c5, 0.018));
+
+// -- Joint pivot caps (small spheres, give a sense of mechanical detail)
+function pivotCap(color = 0x222a38) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(0.013, 24, 24),
+    metalMat(color, 0.95, 0.18),
+  );
+  m.castShadow = true;
+  return m;
+}
+shoulder.add(pivotCap());
+elbow.add(pivotCap());
+wrist.add(pivotCap());
+
+// -- Joint axis gizmos — small RGB triads at each pivot so you SEE the
+//    axes of rotation. Tiny, but they're what makes the motion legible.
+function jointAxes(size = 0.022) {
+  const ax = new THREE.AxesHelper(size);
+  ax.material.transparent = true;
+  ax.material.opacity = 0.85;
+  return ax;
+}
+basePivot.add(jointAxes(0.025));
+shoulder.add(jointAxes());
+elbow.add(jointAxes());
+wrist.add(jointAxes());
+
+// -- Gripper (animated jaws on the wrist) -------------------------------
+const gripperRoot = new THREE.Object3D();
+gripperRoot.position.x = l3;
+wrist.add(gripperRoot);
+
+const palm = new THREE.Mesh(
+  new THREE.BoxGeometry(0.015, 0.022, 0.022),
+  metalMat(0x2a3346, 0.9, 0.25),
+);
+palm.position.x = 0.007;
+palm.castShadow = true;
+gripperRoot.add(palm);
+
+function finger() {
+  const f = new THREE.Mesh(
+    new THREE.BoxGeometry(0.022, 0.005, 0.022),
+    metalMat(0x1d2535, 0.8, 0.35),
+  );
+  f.position.x = 0.022;
+  f.castShadow = true;
+  return f;
+}
+const fingerL = finger();
+const fingerR = finger();
+gripperRoot.add(fingerL);
+gripperRoot.add(fingerR);
+
+// Glowing tool-center indicator
+const toolDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.005, 16, 16),
+  new THREE.MeshStandardMaterial({
+    color: 0xff9d4d, emissive: 0xff9d4d, emissiveIntensity: 2.5,
+    metalness: 0.2, roughness: 0.4,
+  }),
+);
+toolDot.position.x = 0.030;
+gripperRoot.add(toolDot);
+
+// -- Cubes ---------------------------------------------------------------
+const cubeMeshes = new Map();
+function ensureCube(id) {
+  if (!cubeMeshes.has(id)) {
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(0.028, 0.028, 0.028),
+      new THREE.MeshStandardMaterial({
+        color: 0xff4060, emissive: 0x220006,
+        metalness: 0.15, roughness: 0.45,
+      }),
+    );
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+    cubeMeshes.set(id, m);
+  }
+  return cubeMeshes.get(id);
+}
+
+// -- Tool path trail -----------------------------------------------------
+const TRAIL_MAX = 2400;
+const trailGeom = new THREE.BufferGeometry();
+const trailPositions = new Float32Array(TRAIL_MAX * 3);
+const trailColors = new Float32Array(TRAIL_MAX * 3);
+trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+trailGeom.setAttribute('color', new THREE.BufferAttribute(trailColors, 3));
+trailGeom.setDrawRange(0, 0);
+const trailMat = new THREE.LineBasicMaterial({
+  vertexColors: true, transparent: true, opacity: 0.85,
+});
+const trail = new THREE.Line(trailGeom, trailMat);
+scene.add(trail);
+let trailCount = 0;
+
+function pushTrail(p, carrying) {
+  if (trailCount >= TRAIL_MAX) return;
+  trailPositions[trailCount * 3] = p.x;
+  trailPositions[trailCount * 3 + 1] = p.y;
+  trailPositions[trailCount * 3 + 2] = p.z;
+  // free = blue, carrying = orange
+  const c = carrying ? [1.0, 0.55, 0.20] : [0.30, 0.65, 1.0];
+  trailColors[trailCount * 3] = c[0];
+  trailColors[trailCount * 3 + 1] = c[1];
+  trailColors[trailCount * 3 + 2] = c[2];
+  trailCount++;
+  trailGeom.setDrawRange(0, trailCount);
+  trailGeom.attributes.position.needsUpdate = true;
+  trailGeom.attributes.color.needsUpdate = true;
+}
+function clearTrail() {
+  trailCount = 0;
+  trailGeom.setDrawRange(0, 0);
+}
+
+// -- Target markers ------------------------------------------------------
+function targetRing(pos, color) {
+  const g = new THREE.RingGeometry(0.022, 0.026, 48);
+  const m = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
+  });
+  const r = new THREE.Mesh(g, m);
+  r.position.copy(pos);
+  r.position.z = 0.0008;
+  scene.add(r);
+  return r;
+}
+// First and last frame object positions = pick & place locations
+const firstObj = recording.frames[0]?.objects?.[0];
+const lastObj = recording.frames[recording.frames.length - 1]?.objects?.[0];
+if (firstObj) targetRing(new THREE.Vector3(firstObj.x, firstObj.y, 0), 0x4cb0ff);
+if (lastObj)  targetRing(new THREE.Vector3(lastObj.x,  lastObj.y,  0), 0xff9d4d);
+
+// -- Phase derivation from the gripper trace -----------------------------
+// Heuristic: gripper > 0.5 → open; < 0.5 → closed. Find transitions.
+function derivePhases(frames) {
+  const phases = new Array(frames.length).fill('MOVING TO PICK');
+  let closeAt = -1, openAfterCloseAt = -1;
+  for (let i = 1; i < frames.length; i++) {
+    if (closeAt < 0 && frames[i - 1].gripper > 0.5 && frames[i].gripper <= 0.5)
+      closeAt = i;
+    if (closeAt >= 0 && openAfterCloseAt < 0
+        && frames[i - 1].gripper <= 0.5 && frames[i].gripper > 0.5)
+      openAfterCloseAt = i;
+  }
+  if (closeAt < 0) closeAt = frames.length;
+  if (openAfterCloseAt < 0) openAfterCloseAt = frames.length;
+
+  const closeWindow = 8; // frames around the gripper close
+  for (let i = 0; i < frames.length; i++) {
+    if (i < closeAt - closeWindow)         phases[i] = 'MOVING TO PICK';
+    else if (i < closeAt + closeWindow)    phases[i] = 'GRASPING';
+    else if (i < openAfterCloseAt - closeWindow) phases[i] = 'CARRYING';
+    else if (i < openAfterCloseAt + closeWindow) phases[i] = 'PLACING';
+    else                                    phases[i] = 'RETRACTING';
+  }
+  return phases;
+}
+const phases = derivePhases(recording.frames);
+
+// -- Playback ------------------------------------------------------------
+const tEl = document.getElementById('t');
+const jEl = document.getElementById('joints');
+const eeEl = document.getElementById('ee');
+const phEl = document.getElementById('phase');
+
+const totalT = recording.frames.length
+  ? recording.frames[recording.frames.length - 1].t
+  : 0;
+const lerp = (a, b, u) => a + (b - a) * u;
+
+function frameAt(t) {
+  const fs = recording.frames;
+  if (!fs.length) return { idx: 0, frame: null };
+  if (t <= fs[0].t) return { idx: 0, frame: fs[0] };
+  for (let i = 1; i < fs.length; i++) {
+    if (fs[i].t >= t) {
+      const a = fs[i - 1], b = fs[i];
+      const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
+      return {
+        idx: i,
+        frame: {
+          t,
+          base: lerp(a.base, b.base, u),
+          shoulder: lerp(a.shoulder, b.shoulder, u),
+          elbow: lerp(a.elbow, b.elbow, u),
+          wrist: lerp(a.wrist, b.wrist, u),
+          gripper: lerp(a.gripper, b.gripper, u),
+          objects: b.objects,
+        },
+      };
+    }
+  }
+  return { idx: fs.length - 1, frame: fs[fs.length - 1] };
+}
+
+const _v = new THREE.Vector3();
+let lastTrailT = -1;
+
+function applyPhase(p) {
+  phEl.textContent = p;
+  phEl.className = 'phase';
+  if (p === 'GRASPING' || p === 'PLACING') phEl.classList.add('picking');
+  else if (p === 'CARRYING') phEl.classList.add('carrying');
+  else if (p === 'RETRACTING') phEl.classList.add('done');
+}
+
+function applyFrame(idx, f, t) {
+  basePivot.rotation.z = f.base;
+  shoulder.rotation.y  = -f.shoulder;
+  elbow.rotation.y     = -f.elbow;
+  wrist.rotation.y     = -f.wrist;
+
+  // Gripper: 0 = closed, 1.2 = open. Map to finger spread.
+  const spread = 0.0035 + Math.max(0.0, Math.min(1.2, f.gripper)) * 0.012;
+  fingerL.position.y =  spread;
+  fingerR.position.y = -spread;
+
+  for (const o of f.objects) {
+    ensureCube(o.id).position.set(o.x, o.y, o.z);
+  }
+
+  toolDot.getWorldPosition(_v);
+  // Push trail at ~120 Hz max (skip if hardly moved between frames)
+  if (t - lastTrailT > 0.012) {
+    const carrying = f.gripper < 0.5;
+    pushTrail(_v, carrying);
+    lastTrailT = t;
+  }
+
+  tEl.innerHTML = `t = <span class="v">${f.t.toFixed(2)}s</span> / ${totalT.toFixed(2)}s`;
+  jEl.innerHTML =
+    `base=<span class="v">${f.base.toFixed(2)}</span> ` +
+    `shoulder=<span class="v">${f.shoulder.toFixed(2)}</span> ` +
+    `elbow=<span class="v">${f.elbow.toFixed(2)}</span><br>` +
+    `wrist=<span class="v">${f.wrist.toFixed(2)}</span> ` +
+    `grip=<span class="v">${f.gripper.toFixed(2)}</span>`;
+  eeEl.innerHTML =
+    `EE = (<span class="v">${_v.x.toFixed(3)}</span>, ` +
+    `<span class="v">${_v.y.toFixed(3)}</span>, ` +
+    `<span class="v">${_v.z.toFixed(3)}</span>) m`;
+
+  applyPhase(phases[idx] || 'MOVING TO PICK');
+}
+
+// -- Post-processing (bloom) ---------------------------------------------
+const composer = new EffectComposer(renderer);
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.5, 0.25);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// -- Auto-orbit camera + key bindings ------------------------------------
+let autoOrbit = false;
+let orbitAngle = Math.atan2(camera.position.y - controls.target.y,
+                            camera.position.x - controls.target.x);
+const orbitRadius = camera.position.distanceTo(controls.target);
+let orbitZ = camera.position.z;
+
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    autoOrbit = !autoOrbit;
+    e.preventDefault();
+  }
+  if (e.key === 'r' || e.key === 'R') {
+    camera.position.copy(cameraHome);
+    controls.target.set(0, 0, 0.08);
+    autoOrbit = false;
+  }
+});
+
+// -- Animation loop -------------------------------------------------------
+const startMs = performance.now();
+const LOOP_PAUSE = 0.8;
+let prevT = 0;
+
+function tick() {
+  const elapsed = (performance.now() - startMs) / 1000;
+  const cycle = totalT + LOOP_PAUSE;
+  const t = elapsed % cycle;
+
+  if (t < prevT) clearTrail();
+  prevT = t;
+
+  const tt = Math.min(t, totalT);
+  const { idx, frame: f } = frameAt(tt);
+  if (f) applyFrame(idx, f, tt);
+
+  if (autoOrbit) {
+    orbitAngle += 0.0035;
+    camera.position.set(
+      controls.target.x + orbitRadius * Math.cos(orbitAngle),
+      controls.target.y + orbitRadius * Math.sin(orbitAngle),
+      orbitZ,
+    );
+    camera.lookAt(controls.target);
+  }
+
+  controls.update();
+  composer.render();
+  requestAnimationFrame(tick);
+}
+tick();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
