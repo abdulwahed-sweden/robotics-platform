@@ -2,9 +2,9 @@
 
 A Rust robotic arm. Same code runs in simulation or on real Raspberry Pi servos.
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/abdulwahed-sweden)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/abdulwahed-sweden?metadata_source=robotics&metadata_campaign=readme_badge)
 
-> If this robotics work is useful to you, you can [sponsor continued open-source development](https://github.com/sponsors/abdulwahed-sweden).
+> If this robotics work is useful to you, you can [sponsor continued open-source development](https://github.com/sponsors/abdulwahed-sweden?metadata_source=robotics&metadata_campaign=readme).
 
 ## Run
 
