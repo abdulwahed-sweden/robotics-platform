@@ -2,6 +2,10 @@
 
 A Rust robotic arm. Same code runs in simulation or on real Raspberry Pi servos.
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/abdulwahed-sweden)
+
+> If this robotics work is useful to you, you can [sponsor continued open-source development](https://github.com/sponsors/abdulwahed-sweden).
+
 ## Run
 
 ```bash
@@ -42,12 +46,3 @@ cli          binary entry point
 ## Stack
 
 Rust stable. `tokio`, `nalgebra`, `serde`, `clap`, `tracing`, `rppal`.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are tracked in
-[CHANGELOG.md](CHANGELOG.md).
-
-## License
-
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.
