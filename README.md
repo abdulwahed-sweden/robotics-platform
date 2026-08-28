@@ -46,3 +46,12 @@ cli          binary entry point
 ## Stack
 
 Rust stable. `tokio`, `nalgebra`, `serde`, `clap`, `tracing`, `rppal`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Notable changes are tracked in
+[CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.
